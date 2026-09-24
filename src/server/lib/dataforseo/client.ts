@@ -47,6 +47,7 @@ import {
   fetchRankCheckSerp,
   postRankCheckTasks,
 } from "@/server/lib/dataforseo/serp";
+import { fetchTopStoriesSerp } from "@/server/lib/dataforseo/topStories";
 import { fetchLighthouseResult } from "@/server/lib/dataforseo/lighthouse";
 import {
   fetchLlmAggregatedMetrics,
@@ -125,6 +126,8 @@ export function createDataforseoClient(customer: BillingCustomerContext) {
       // whole batch (DataForSEO bills task_post at post time, collection is
       // free).
       rankCheckTaskPost: meter(customer, postRankCheckTasks, "rank_tracking"),
+      // Scheduled Top Stories snapshots are SERP monitoring, like rank checks.
+      topStories: meter(customer, fetchTopStoriesSerp, "rank_tracking"),
       local: meter(customer, fetchLocalSerp, "local_seo"),
     },
     labs: {

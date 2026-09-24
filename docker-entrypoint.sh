@@ -36,4 +36,8 @@ else
   printf '%s' "$FINGERPRINT" > "$FP_FILE"
 fi
 
+# Nothing runs the Worker's cron triggers under `vite preview` (scheduled rank
+# checks, Top Stories tracking); this background loop fires them instead.
+node scripts/selfhost-cron.mjs &
+
 exec pnpm exec vite preview --host 0.0.0.0 --port "${PORT:-3001}"
