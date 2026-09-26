@@ -8,6 +8,10 @@ import { ProjectRepository } from "@/server/features/projects/repositories/Proje
 import { SamSessionRepository } from "@/server/features/sam/SamSessionRepository";
 import { runScheduledRankChecks } from "@/server/features/rank-tracking/services/scheduledRankChecks";
 import { reconcileStaleAudits } from "@/server/features/audit/services/auditReconciler";
+import {
+  pruneTopStories,
+  runTopStoriesTick,
+} from "@/server/features/top-stories/services/topStoriesScheduler";
 import { getOrCreateOrganizationCustomer } from "@/server/billing/subscription";
 import { isHostedServerAuthMode } from "@/server/lib/runtime-env";
 import { getAuthMode, isHostedAuthMode } from "@/lib/auth-mode";
@@ -190,9 +194,15 @@ export default {
   async scheduled(
     controller: ScheduledController,
     env: Env,
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
   ) {
     if (controller.cron === MCP_OAUTH_PURGE_CRON) {
+      try {
+        await withPgClient(() => pruneTopStories());
+      } catch (err) {
+        console.error("[cron] Top Stories retention prune failed:", err);
+      }
+
       // Only hosted mode runs the OAuth provider (and has OAUTH_KV bound).
       if (isHostedAuthMode(getAuthMode(env.AUTH_MODE))) {
         const result = await openSeoOAuthProvider.purgeExpiredData(
@@ -215,6 +225,14 @@ export default {
       }
       return;
     }
+
+    // Top Stories runs alongside the audit/rank work below, so neither can
+    // delay or fail the other. Its stages contain their own errors.
+    ctx.waitUntil(
+      withPgClient(() => runTopStoriesTick()).catch((err: unknown) => {
+        console.error("[cron] Top Stories tick failed:", err);
+      }),
+    );
 
     // Watchdog first: reconcile audits stuck in "running" whose workflow died
     // without reaching mark-failed (OOM/CPU kills, expired instances). Runs

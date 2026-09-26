@@ -131,7 +131,7 @@ function isTimeoutError(error: unknown): boolean {
 }
 
 /** Read a response body up to maxBytes; null when the body exceeds it. */
-async function readBodyCapped(
+export async function readBodyCapped(
   response: Response,
   maxBytes: number,
 ): Promise<string | null> {
